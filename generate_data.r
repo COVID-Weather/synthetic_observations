@@ -47,22 +47,26 @@ R_obs0 <- rpois(N_obs,lambda=R[t_obs]*POP)
 
 ##--MAKE A PLOT OF OBSERVATIONS--##############
 par(mfrow=c(2,2),mar=c(2,2,2,2))
-plot(S,type='l'); 
+plot(S,type='l',ylim=c(0,1)); 
 	par(new=TRUE); 
-	plot(S_obs0,yaxt='n',xaxt='n')
-	axis(side=4)
+	#plot(S_obs0,yaxt='n',xaxt='n',ylim=c(0,990))
+	#axis(side=4)
+	mtext('Susceptible')
 plot(E,type='l')
-	par(new=TRUE)
-	plot(E_obs0,yaxt='n',xaxt='n')
-	axis(side=4)
+	#par(new=TRUE)
+	#plot(E_obs0,yaxt='n',xaxt='n')
+	#axis(side=4)
+	mtext('Exposed')
 plot(I,type='l')
 	par(new=TRUE)
 	plot(I_obs0,yaxt='n',xaxt='n')
 	axis(side=4)
+	mtext('Infected')
 plot(R,type='l')
 	par(new=TRUE)
-	plot(R_obs0,yaxt='n',xaxt='n')
+	plot(R_obs0,yaxt='n',xaxt='n',ylim=c(0,990))
 	axis(side=4)
+	mtext('Recovered')
 
 #################################################################
 ## ESTIMATE PARAMETERS ##########################################
@@ -106,6 +110,17 @@ post_SEIR_I_R <- extract(mcmc_SEIR_I_R)
 ## - code assumes a linear ramp-up in the proportion of infected being tested
 ## - p0 is the initial proportion of infecteds being observed 
 ####################################################################
+data_I_R <- list(POP=POP,
+		     y=cbind(S_obs0,E_obs0,I_obs0,R_obs0),
+			 N_obs=N_obs,
+			 t_obs=t_obs,
+			 x0 = x0,
+			 x_p=4,
+			 N_obsvar=2,
+			 theta_p=3,
+			 i_obsvar=c(3,4))
+
+opt_SEIR <- optimizing(mod_SEIR,data=data_I_R)
 
 n_sim <- 20
 p0s <- seq(0,0.9,length.out=n_sim)
@@ -144,23 +159,31 @@ par(mfrow=c(2,2),mar=c(3,3,3,3),oma=c(2,2,2,2))
 plot(seq(p0s[1],1,length.out=N_obs),type='l')
 for(i in 2:length(p0s)) lines(seq(p0s[i],1,length.out=N_obs))
 mtext(side=2,'Testing bias',line=2.5)
-plot(p0s,PARS[1,],ylim=c(0.2,1.1),type='l',col='blue')
+plot(p0s,PARS[1,],ylim=c(0.1,1.1),type='l',col='blue')
 	lines(p0s,PARS[1,] + 2*SDS[1,],lty=2,col='blue')
 	lines(p0s,PARS[1,] - 2*SDS[1,],lty=2,col='blue')
 	legend('topright',legend=c(expression(italic(gamma)),
 	                           expression(italic(beta)),
-							   expression(italic(R['0']))),bty='n',lty=1,col=c('blue','red','black'))
+							   expression(italic(sigma)),
+							   expression(italic(R['0']))),bty='n',lty=1,col=c('blue','red','orange','black'))
 lines(p0s,PARS[2,],col='red')
 	lines(p0s,PARS[2,] + 2*SDS[2,],lty=2,col='red')
 	lines(p0s,PARS[2,] - 2*SDS[2,],lty=2,col='red')
 abline(h=gamma,col='blue')
 abline(h=beta,col='red')
+lines(p0s,PARS[3,],col='orange')
+	lines(p0s,PARS[3,] + 2*SDS[3,],lty=2,col='orange')
+	lines(p0s,PARS[3,] - 2*SDS[3,],lty=2,col='orange')
+abline(h=sigma-0.05,col='orange')
+
 par(new=TRUE)
-plot(p0s,PARS[2,]/PARS[1,],ylim=c(2.5,4),xaxt='n',yaxt='n',type='l')
-	lines(p0s,PARS[2,]/PARS[1,] + 2*sqrt(SDS[1,]^2 + SDS[2,]^2),lty=2)
-	lines(p0s,PARS[2,]/PARS[1,] - 2*sqrt(SDS[1,]^2 + SDS[2,]^2),lty=2)
+# plot(p0s,PARS[2,]/PARS[1,],ylim=c(2.5,4),xaxt='n',yaxt='n',type='l')
+	# lines(p0s,PARS[2,]/PARS[1,] + 2*sqrt(SDS[1,]^2 + SDS[2,]^2),lty=2)
+	# lines(p0s,PARS[2,]/PARS[1,] - 2*sqrt(SDS[1,]^2 + SDS[2,]^2),lty=2)
+plot(p0s_pw,PARS_pw[2,]/PARS_pw[1,],ylim=c(2.5,4),xaxt='n',yaxt='n',type='l')
+	lines(p0s,PARS_pw[2,]/PARS_pw[1,] + 2*sqrt(SDS_pw[1,]^2 + SDS_pw[2,]^2),lty=2)
+	lines(p0s,PARS_pw[2,]/PARS_pw[1,] - 2*sqrt(SDS_pw[1,]^2 + SDS_pw[2,]^2),lty=2)
 axis(side=4)
-lines(p0s,PARS[3,])
 abline(h=beta/gamma)
 mtext(side=1,'Initial testing bias',line=2.5)
 
@@ -171,15 +194,21 @@ plot(c(rep(p0s_pw[1],50),rep(1,50)),type='l')
 for(i in 2:length(p0s_pw)) lines(c(rep(p0s_pw[i],50),rep(1,50)))
 mtext(side=2,'Testing bias',line=2.5)
 
-plot(p0s_pw,PARS_pw[1,],ylim=c(0.2,1.1),type='l',col='blue')
+plot(p0s_pw,PARS_pw[1,],ylim=c(0.1,1.1),type='l',col='blue')
 	lines(p0s_pw,PARS_pw[1,] + 2*SDS_pw[1,],lty=2,col='blue')
 	lines(p0s_pw,PARS_pw[1,] - 2*SDS_pw[1,],lty=2,col='blue')
 	legend('topright',legend=c(expression(italic(gamma)),
 	                           expression(italic(beta)),
-							   expression(italic(R['0']))),bty='n',lty=1,col=c('blue','red','black'))
+							   expression(italic(sigma)),
+							   expression(italic(R['0']))),bty='n',lty=1,col=c('blue','red','orange','black'))
 lines(p0s_pw,PARS_pw[2,],col='red')
 	lines(p0s_pw,PARS_pw[2,] + 2*SDS_pw[2,],lty=2,col='red')
 	lines(p0s_pw,PARS_pw[2,] - 2*SDS_pw[2,],lty=2,col='red')
+lines(p0s,PARS_pw[3,],col='orange')
+	lines(p0s,PARS_pw[3,] + 2*SDS_pw[3,],lty=2,col='orange')
+	lines(p0s,PARS_pw[3,] - 2*SDS_pw[3,],lty=2,col='orange')
+abline(h=sigma-0.05,col='orange')
+
 abline(h=gamma,col='blue')
 abline(h=beta,col='red')
 par(new=TRUE)
@@ -187,7 +216,6 @@ plot(p0s_pw,PARS_pw[2,]/PARS_pw[1,],ylim=c(2.5,4),xaxt='n',yaxt='n',type='l')
 	lines(p0s,PARS_pw[2,]/PARS_pw[1,] + 2*sqrt(SDS_pw[1,]^2 + SDS_pw[2,]^2),lty=2)
 	lines(p0s,PARS_pw[2,]/PARS_pw[1,] - 2*sqrt(SDS_pw[1,]^2 + SDS_pw[2,]^2),lty=2)
 axis(side=4)
-lines(p0s_pw,PARS_pw[3,])
 abline(h=beta/gamma)
 mtext(side=1,'Initial testing bias',line=2.5)
 
