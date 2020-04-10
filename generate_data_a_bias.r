@@ -5,17 +5,46 @@ Sys.setenv(LOCAL_CPPFLAGS = '-march=native')
 setwd('d:/dropbox/working/covid19/synthetic_observations/' )
 
 ##############################################################
+dat <- read.csv('d:/dropbox/working/covid19/daily.csv')
+
+NY <- dat[dat$state=='NY',]
+
+NY$doy <- as.numeric(strftime(paste(substr(as.character(NY$date),1,4), 
+							         substr(as.character(NY$date),5,6), 
+									 substr(as.character(NY$date),7,8), sep='-'), format = "%j")) 
+
+dPOS <- rev(NY$positiveIncrease); dPOS[1] <- 0
+dNEG <- rev(NY$negativeIncrease); dNEG[1] <- 0
+doy  <- rev(NY$doy)
+
+par(mfrow=c(2,2),mar=c(2,2,2,2))
+plot(doy,dPOS); mtext('Positive')
+plot(doy,dNEG); mtext('Negative')
+plot(doy,dPOS + dNEG); mtext('Total Tests')
+plot(doy,dPOS/(dPOS+dNEG))
+
+Npop <- 1.954E7
+
+tests <- dPOS + dNEG
+
+dPOS_f <- dPOS/Npop
+##############################################################
 ## GENERATE DATA #############################################
 ##############################################################
-niter <- 100
+POP <- 19.54E7
+p_pop_test <- (tests/Npop)
+
+niter <-36
 dt    <- 1
 S=E=I=R=t <- numeric(niter/dt)
-I[1] <- 0.001
+I[1] <- 1/POP
 S[1] <- 1.0 - I[1]
 
-gamma <- 0.2
-beta <- 0.6
-sigma <- 0.2
+gamma <- 1/10
+beta <- 0.4
+sigma <- 1/14
+
+p_pop_test_ts <- c(rep(0,niter-length(p_pop_test)),p_pop_test)
 
 for(i in 2:niter){
 	dSdt <- -beta*S[i-1]*I[i-1]
@@ -30,20 +59,40 @@ for(i in 2:niter){
 }
 
 ##--MAKE A PLOT OF MODEL SOLUTION--#######
+par(mfrow=c(1,1))
 plot(S,type='l',ylim=c(0,1))
 lines(E)
 lines(I)
 lines(R)
 
 ##--GENERATE OBSERVATIONS-############
-POP <- 1000              # total population size
-t_obs <- seq(1,niter,1)  # observation points - once per day
-N_obs <- length(t_obs)   # total number of obs
+# I_obs0 <- rpois(niter,lambda=I*Npop)
+# S_obs0 <- rpois(niter,lambda=S*Npop)
+# E_obs0 <- rpois(niter,lambda=E*Npop)
+# R_obs0 <- rpois(niter,lambda=R*Npop)
+I_obs0 <- rpois(niter,lambda=p_pop_test_ts*(I/(I+0.2*(S+E)))*POP)
+I_obs <- rpois(niter,lambda=I*POP)
 
-I_obs0 <- rpois(N_obs,lambda=I[t_obs]*POP)
-S_obs0 <- rpois(N_obs,lambda=S[t_obs]*POP)
-E_obs0 <- rpois(N_obs,lambda=E[t_obs]*POP)
-R_obs0 <- rpois(N_obs,lambda=R[t_obs]*POP)
+S_obs0 <- rpois(niter,lambda=S*POP)
+E_obs0 <- rpois(niter,lambda=E*POP)
+R_obs0 <- rpois(niter,lambda=R*POP)
+
+par(mfrow=c(1,1))
+plot(I_obs0,type='l')
+lines(E_obs0)
+lines(I)
+lines(R)
+
+
+##--PLOTS OF DETECTION PROBABILITY--###############
+par(mfrow=c(1,1),oma=c(2,2,2,2))
+plot(-999,ylim=c(0,1),xlim=c(0,niter))
+xs <- seq(0.01,1,length.out=8)
+for(i in 1:length(xs)) lines(I/(I+xs[i]*(S+E)),lty=i,col=i,lwd=1.5)
+legend('topleft',legend=round(xs,2),lty=1:8,col=1:8,lwd=1.5,bty='n')
+mtext(side=2,'Detection Probability (I/(I+a(S+E)))',line=2.5)
+mtext(side=1,'Day of Year',line=2.5)
+
 
 ##--MAKE A PLOT OF OBSERVATIONS--##############
 par(mfrow=c(2,2),mar=c(2,2,2,2))
@@ -64,40 +113,61 @@ plot(I,type='l')
 	mtext('Infected')
 plot(R,type='l')
 	par(new=TRUE)
-	plot(R_obs0,yaxt='n',xaxt='n',ylim=c(0,990))
+	plot(R_obs0,yaxt='n',xaxt='n')
 	axis(side=4)
 	mtext('Recovered')
 
 #################################################################
 ## ESTIMATE PARAMETERS ##########################################
 #################################################################
-I0 <- 0.001
+##--COMPILE STAN CODE--###############
+mod_SEIR <- stan_model('d:/dropbox/working/covid19/synthetic_observations/stan_SIER_beta.stan') #compile the stan code
+#mod_SEIR <- stan_model('stan_SIER_multinomial.stan')
+  
+I0 <- 1/POP
 S0 <- 1.0 - I0
 R0 <- 0.0
 E0 <- 0.0
 x0 <- c(S0,E0,I0,R0) #initial conditions
 
-num <- 0.6
+num <- 1
 data <- list(POP=POP,
 		     y=cbind(S_obs0,E_obs0,as.integer(num*I_obs0),as.integer(num*R_obs0)),
-			 N_obs=N_obs,
-			 t_obs=t_obs,
+			 N_obs=niter,
+			 t_obs=1:niter,
 			 x0 = x0,
 			 x_p=4,
 			 N_obsvar=1,
 			 theta_p=3,
 			 i_obsvar=c(3))
 opt_SEIR <- optimizing(mod_SEIR,data=data)
-opt_SEIR$par[1:3]
-opt_SEIR$par[2]/opt_SEIR$par[1]
+opt_SEIR$par[1]
+opt_SEIR$par[1]/(1/10)
 
+mcmc_SEIR <- sampling(mod_SEIR,data=data,open_progress=TRUE,init='0')
 
+#################################
+## FIT TO NY DATA ##################
+#################################
+I0 <- 0.01
+S0 <- 1.0 - I0
+R0 <- 0.0
+E0 <- 0.0
+x0 <- c(S0,E0,I0,R0) #initial conditions
+data <- list(POP=POP,
+		     y=cbind(dPOS,dPOS,as.integer(dPOS),dPOS),
+			 N_obs=length(dPOS),
+			 t_obs=1:length(dPOS),
+			 x0 = x0,
+			 x_p=4,
+			 N_obsvar=1,
+			 theta_p=3,
+			 i_obsvar=c(3))
+opt_SEIR <- optimizing(mod_SEIR,data=data,hessian=TRUE)
+opt_SEIR$par[1]/(1/10)
 
+sqrt(solve(-opt_SEIR$hessian))
 
-##--COMPILE STAN CODE--###############
-mod_SEIR <- stan_model('stan_SIER.stan') #compile the stan code
-#mod_SEIR <- stan_model('stan_SIER_multinomial.stan')
-  
 ##--MCMC VS OPTIMIZATION--############
 mcmc_SEIR <- sampling(mod_SEIR,data=data,open_progress=TRUE) #mcmc
 
