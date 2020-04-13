@@ -56,7 +56,9 @@ plot(doywa,cumsum(dPOSwa),log='y',type='l'); mtext('log Cumulative Positives')
 #plot(doy,dHOS,type='l');                 mtext('New Hospitalized')
 #plot(doy,cumsum(dHOS),log='y',type='l'); mtext('log Cumulative Hospitalized')
 
-
+#########################################################
+## PLOTS DATA WITH HIGH AND LOW POSITIVE RATES ##########
+#########################################################
 nyup <- 0.75
 nydn <- 0.1
 
@@ -81,57 +83,44 @@ lines(cumsum(waup*(dPOSwa+dNEGwa)),lty=2)
 lines(cumsum(wadn*(dPOSwa+dNEGwa)),lty=2)
 
 mtext(outer=TRUE,side=1,'Day',cex=1.2)
-max(dPOSwa/(dPOSwa+dNEGwa),na.rm=TRUE)
 
-
-
-##########################################
-cols <- matlab.like(length(doy))
+##########################################################
+##--PLOTS OF TESTING AND POSITITIVE RATES OVER TIME--#####
+##########################################################
+cols <- matlab.like(length(doyny))
 
 par(mfrow=c(2,3))
 plot(-999,xlim=c(64,99),ylim=c(0,12000),bty='n')
-x <- doyny 
-y <- dPOSny
+x <- doyny; y <- dPOSny
 segments(x[-length(x)],y[-length(y)],x[-1L],y[-1L],col=cols)
 points(x,y,col='black',bg=cols,pch=21,lwd=1)
-#image.plot(legend.only=TRUE,matrix(doy))
 
 plot(-999,xlim=c(0,25000),ylim=c(0,12000),bty='n')
-x <- dPOSny + dNEGny
-y <- dPOSny
+x <- dPOSny + dNEGny; y <- dPOSny
 segments(x[-length(x)],y[-length(y)],x[-1L],y[-1L],col=cols)
 points(x,y,col='black',bg=cols,pch=21,lwd=1)
 
 plot(-999,xlim=c(0,25000),ylim=c(0,1),bty='n')
-x <- dPOSny + dNEGny
-y <- dPOSny/(dPOSny + dNEGny)
-y[y=='NaN'] <- 0
-x[x=='NaN'] <- 0
+x <- dPOSny + dNEGny; y <- dPOSny/(dPOSny + dNEGny)
+y[y=='NaN'] <- 0; x[x=='NaN'] <- 0
 segments(x[-length(x)],y[-length(y)],x[-1L],y[-1L],col=cols)
 points(x,y,col='black',bg=cols,pch=21,lwd=1)
-#image.plot(legend.only=TRUE,matrix(doy))
 
 ##--WASHINGTON--##########
 plot(-999,xlim=c(64,99),ylim=c(0,1000),bty='n')
-x <- doywa 
-y <- dPOSwa
+x <- doywa; y <- dPOSwa
 segments(x[-length(x)],y[-length(y)],x[-1L],y[-1L],col=cols)
 points(x,y,col='black',bg=cols,pch=21,lwd=1)
-#image.plot(legend.only=TRUE,matrix(doy))
 
 plot(-999,xlim=c(0,12000),ylim=c(0,1000),bty='n')
-x <- dPOSwa + dNEGwa
-y <- dPOSwa
-y[y=='NaN'] <- 0
-x[x=='NaN'] <- 0
+x <- dPOSwa + dNEGwa; y <- dPOSwa
+y[y=='NaN'] <- 0; x[x=='NaN'] <- 0
 segments(x[-length(x)],y[-length(y)],x[-1L],y[-1L],col=cols)
 points(x,y,col='black',bg=cols,pch=21,lwd=1)
 
 plot(-999,xlim=c(0,12000),ylim=c(0,1),bty='n')
-x <- dPOSwa + dNEGwa
-y <- dPOSwa/(dPOSwa + dNEGwa)
-#y[y=='NaN'] <- 0
-#x[x=='NaN'] <- 0
+x <- dPOSwa + dNEGwa; y <- dPOSwa/(dPOSwa + dNEGwa)
+#y[y=='NaN'] <- 0; x[x=='NaN'] <- 0
 segments(x[-length(x)],y[-length(y)],x[-1L],y[-1L],col=cols)
 points(x,y,col='black',bg=cols,pch=21,lwd=1)
 image.plot(legend.only=TRUE,matrix(doy))
@@ -143,7 +132,6 @@ gamma <- 1/14
 xin <- seq(0,15,0.01)
 par(mfrow=c(1,1))
 plot(xin,dnorm(xin,mean=0.2/gamma,sd=3))
-#hist()
 
 ###################################################
 ## PLOTS OF OBSERVING EXPERIMENTS #################
@@ -151,7 +139,8 @@ plot(xin,dnorm(xin,mean=0.2/gamma,sd=3))
 par(mfrow=c(3,1),mar=c(2,2,2,2))
 plot(-999,xlim=c(0,40),ylim=c(0,2.5),bty='n')
 for(i in 1:length(fs)){
-	p <- c(rep(1,0),seq(1,fs[i],length.out=niter-0))
+	p <- c(rep(1,0),seq(1,fs[i],length.out=niterny-0))
+	
 	lines(p,lty=2,col=cols[i])
 }
 	abline(h=1,lty=1,lwd=2)
@@ -181,8 +170,14 @@ for(i in 1:length(fs)){
 ## ESTIMATE PARAMETERS ##############################################################
 #####################################################################################
 ##--COMPILE STAN CODE--###############
-mod_b <- stan_model('d:/dropbox/working/covid19/synthetic_observations/stan_SIER_beta.stan') #compile the stan code
-mod_b_s <- stan_model('d:/dropbox/working/covid19/synthetic_observations/stan_SIER_beta_sigma.stan') #compile the stan code
+mod_b   <- stan_model('stan_SIER_beta.stan') #compile the stan code
+mod_b_s <- stan_model('stan_SIER_beta_sigma.stan') #compile the stan code
+
+##--CODED WITH EULER FORWARD--####
+mod     <- stan_model('stan_SEIR_discrete.stan')
+
+##--TIME-DEPENDENT BETA--######
+mod_betaAR1 <- stan_model('stan_SEIR_discrete_beta_AR1.stan')
 
 #################################
 ## FIT TO NY DATA ###############
@@ -207,6 +202,16 @@ print(i)
 	MCMCny[[i]] <- sampling(mod_b,data=data,open_progress=TRUE)
 }
 
+opt <- optimizing(mod_betaAR1,data=data,algorithm="Newton",hessian=TRUE)
+plot(opt$par[1:38])
+abline(h=1)
+plot(opt$par[1:38])
+lines(opt$par[1:38] + 2*sqrt(diag(solve(-opt$hessian)))[1:38])
+lines(opt$par[1:38] - 2*sqrt(diag(solve(-opt$hessian)))[1:38])
+
+opt <- optimizing(mod_betaAR1,data=data,algorithm="Newton",hessian=TRUE)
+
+mcmc <- sampling(mod_betaAR1,data=data,open_progress=TRUE)
 #################################
 ## FIT TO WA DATA ###############
 #################################

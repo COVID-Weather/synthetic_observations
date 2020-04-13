@@ -1,9 +1,9 @@
 functions {
-  real[] SIER(real   t,           // time
-               real[] x,           // state x[1]:CH  x[2]:PR, x[3]:Chl , x[4]:N
+  real[] SIER(real   t,          
+               real[] x,        
                real[] theta,
                real[] x_r,
-               int[]  x_i) {       // parameters
+               int[]  x_i) {      
 
     real beta  = theta[1]; 
     
