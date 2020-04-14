@@ -83,26 +83,46 @@ mtext(side=2,outer=TRUE,'Daily Cases')
 mtext(side=1,outer=TRUE,'Day of Year',line=2.5)
 
 
-
-par(mfrow=c(8,7),mar=c(0,2,0,0),oma=c(3,2,1,1),cex.axis=0.7)
+##--PLOT TESTS--###########
+par(mfrow=c(8,7),mar=c(0,2,0,0),oma=c(3,3,1,1),cex.axis=0.7)
 for(i in 1:length(DATA)){
 	plot(DATA[[i]]$doy,DATA[[i]]$dPOS + DATA[[i]]$dNEG,xaxt='n',type='l',bty='n',xlim=c(63,102))
-	lw <- loess(DATA[[i]]$dPOS + DATA[[i]]$dNEG  ~ DATA[[i]]$doy)
+	lw <- loess(DATA[[i]]$dPOS + DATA[[i]]$dNEG  ~ DATA[[i]]$doy,span=0.6)
 	lines(DATA[[i]]$doy,lw$fitted,lwd=1.5,col='red')
-	legend('topleft',legend=states[i],bty='n')
+	legend('topleft',legend=DATA[[i]]$state,bty='n')
 	if(i>44) axis(side=1)
 }
 mtext(side=1,outer=TRUE,'Day of Year',line=1)
 mtext(side=2,outer=TRUE,'Number of Tests',line=0.5)
 
-par(mfrow=c(8,7),mar=c(0,0,0,0),oma=c(3,2,1,1),cex.axis=0.7)
+##--PLOT TESTING FACTOR--###########
+par(mfrow=c(8,7),mar=c(0,2,0,0),oma=c(3,3,1,1),cex.axis=0.7)
+for(i in 1:length(DATA)){
+	#plot(DATA[[i]]$doy,DATA[[i]]$dPOS + DATA[[i]]$dNEG,xaxt='n',type='l',bty='n',xlim=c(63,102))
+	plot(-999,,xaxt='n',type='l',bty='n',xlim=c(63,102),ylim=c(0,1))
+	lw <- loess(DATA[[i]]$dPOS + DATA[[i]]$dNEG  ~ DATA[[i]]$doy,span=0.4)
+	lines(DATA[[i]]$doy,lw$fitted/max(lw$fitted),lwd=1.5,col='red')
+	lw <- loess(DATA[[i]]$dPOS + DATA[[i]]$dNEG  ~ DATA[[i]]$doy,span=0.6)
+	lines(DATA[[i]]$doy,lw$fitted/max(lw$fitted),lwd=1.5,col='red')
+	lw <- loess(DATA[[i]]$dPOS + DATA[[i]]$dNEG  ~ DATA[[i]]$doy,span=1)
+	lines(DATA[[i]]$doy,lw$fitted/max(lw$fitted),lwd=1.5,col='red')
+	legend('topleft',legend=DATA[[i]]$state,bty='n')
+	if(i>44) axis(side=1)
+}
+mtext(side=1,outer=TRUE,'Day of Year',line=1)
+mtext(side=2,outer=TRUE,'Number of Tests',line=0.5)
+
+
+##--PLOT TESTING FACTOR--###########
+par(mfrow=c(8,7),mar=c(0,0,0,0),oma=c(3,3,1,1),cex.axis=0.7)
 for(i in 1:length(DATA)){
 	dat <- DATA[[i]]
 	plot(dat$dPOS+dat$dNEG,dat$dPOS,xaxt='n',yaxt='n',ylim=c(),xlim=c(),pch=19)
-	legend('topleft',legend=states[i],bty='n',cex=1.2)
+	legend('topleft',legend=DATA[[i]]$state,bty='n',cex=1.2)
+	abline(lm(dat$dPOS ~ I(dat$dPOS+dat$dNEG)),col='red',lwd=1.5)
 }
 mtext(side=1,outer=TRUE,'Number of Tests')
-mtext(side=2,outer=TRUE,'Number of Positives',line=0.5)
+mtext(side=2,outer=TRUE,'Number of Positives',line=1)
 ##################################################################
 ## FIT MODELS ####################################################
 ##################################################################
